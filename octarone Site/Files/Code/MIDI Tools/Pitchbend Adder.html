@@ -1,0 +1,33 @@
+<html><head><link rel="stylesheet" href="../../Main.css"></head><body><div class="menu"><object type="text/html" data="../../Menu.html"></object></div><div class="main">
+<title>Pitchbend Adder</title><h1>Pitchbend Adder</h1>
+
+<p>Simple <a href="../JSFX.html">JSFX</a> script used to add an audio signal to Pitchbend events on the channels specified. The audio signal should be &quot;normalized&quot; between -1 and 1, representing the pitchbend range, which gets added to the pitchbend messages already present in the MIDI bus (but also creating new pitchbend messages if needed). So be careful! You can actually get out of range quite easily (it will get capped to max/min values in such a case). Other MIDI events are passed through. The input audio signal that gets added to the Pitchbend is mono, and it is added to all the channels specified. If you use it in a stereo configuration, it will probably be the left channel.</p>
+
+<p><a class="dl" href="http://stash.reaper.fm/27632/Pitchbend%20Adder.zip">Download it here</a></p>
+
+<p>There are only two parameters:</p>
+<p><ul class="list"><li><b>Channels:</b> Specifies how many channels to affect, others are passed through (unchanged). It always starts with Channel 1, if you need other configurations, remap and reroute them before sending them to this script.</li>
+<li><b>Message Frequency (Hz):</b> This is simply the frequency at which to output Pitchbend messages, to limit them (i.e the frequency at which they are created from the audio signal). Do not set it too high! Some hosts have a limited amount of MIDI events per buffer (or per second) available. Others have performance problems with too many MIDI events. Just don't go overboard and keep in mind that each channel has messages of its own, not just one channel (and they all count to this limit together). One thing to remember is that regardless of this parameter, there will always be a pitchbend sent at the times occupied by the input pitchbends with the correct values (unless it's redundant). This is to remain consistent if a specific pitchbend is absolutely needed at a specific time to sound &quot;just right&quot;, so don't worry about it, you can set the parameter low without sacrificing &quot;accuracy&quot; for important event timings. It only sacrifices accuracy in the actual added (and created) signal&hellip;</li>
+</ul></p>
+
+<p>As you can imagine, the purpose of this little script is to be able to manipulate Pitchbend from audio, while adding it on top of other Pitchbend messages already present. If there are no such messages, then it will simply create Pitchbend messages out of the audio signal (because it is added to zero), while its precision is not limited to buffer chunks (unlike <a href="http://www.reaper.fm/reaplugs/">ReaControlMIDI</a>), so it is superior even if you use it only to create pitchbends out of audio signals.</p>
+
+<h2>Pitchbend Adder (Active Only)</h2>
+<p>This is the same as the Pitchbend Adder, except that it only outputs Pitchbend messages on active notes in a channel. It does this by tracking how many notes are still open on which channels, and as long as there's more than one, it keeps outputting pitchbends. When there's no note played on a given channel, it won't output pitchbends on that channel. This is useful to save on performance or MIDI limits of your host, since silent channels probably won't require pitchbends to begin with.</p>
+
+<p>Don't use it if you know that a silent channel can be affected by Pitchbend (or has to be), though. For example, synth tails or continuous sound generators, will not like it.</p>
+
+<h2>Pitchbend Adder Omni</h2>
+<p>A variant that's made purely for performance and simplicity. It is the same as the Pitchbend Adder, but it ignores the input channel and <i><u>always</u></i> outputs pitchbends on channel 1. This is basically sort of like a &quot;one channel&quot; version of Pitchbend Adder, but be sure that the input MIDI has only channel 1, else it might mess things up. If you use only one channel, though, then go ahead and choose it.</p>
+
+<h2>Pitchbend Adder Omni (Active Only)</h2>
+<p>This is a combination of both variants. It ignores the input channel like Pitchbend Adder Omni, and uses only one channel <i><u>always</u></i>, but it does <i><u>not</u></i> output pitchbends if no notes are active. It has the advantages of both variants in case you needed both.</p>
+
+<p class="end">If you'd like to contact or support me in any way, report bugs or similar, please go to the <a href="../../Contact.html">Contact</a> page.</p>
+
+<center><form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top"><input type="hidden" name="cmd" value="_s-xclick"><input type="hidden" name="hosted_button_id" value="VFU5T4P2ZMJ5W"><input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+<img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1"></form></center>
+
+<div class="footer"><table><td><b>This script is licensed under the <a href="http://www.gnu.org/licenses/gpl.txt">GNU General Public License</a>.</b><br><br>This program is free software: you can redistribute it and/or modify<br>it under the terms of the GNU General Public License as published by<br>the Free Software Foundation, either version 3 of the License, or<br>(at your option) any later version.<br><br>This program is distributed in the hope that it will be useful,<br>but WITHOUT ANY WARRANTY; without even the implied warranty of<br>MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. &nbsp;See the<br>GNU General Public License for more details.<br><br>You should have received a copy of the GNU General Public License<br>along with this program. &nbsp;If not, see &lt;http://www.gnu.org/licenses/&gt;.</td></table></div>
+
+</div></body></html>

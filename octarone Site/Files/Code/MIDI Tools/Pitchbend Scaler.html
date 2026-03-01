@@ -1,0 +1,20 @@
+<html><head><link rel="stylesheet" href="../../Main.css"></head><body><div class="menu"><object type="text/html" data="../../Menu.html"></object></div><div class="main">
+<title>Pitchbend Scaler</title><h1>Pitchbend Scaler</h1>
+
+<p>Simple <a href="../JSFX.html">JSFX</a> script that scales incoming Pitchbend messages by a specific factor, each channel has a different factor so it can be customized per-channel. This scaling is useful if the incoming pitchbend range is different than the range expected by the receiving synth after this script, and you can do it per-channel as well. For example a factor of 0.5 on Channel 1 will multiply all pitchbends on that channel by half, which means that the incoming pitchbend range is twice as small as the expected range (let's say incoming pitchbend range is supposed to be &#177;1 semitone, while the next synth expects &#177;2 semitones, for example).</p>
+
+<p><a class="dl" href="http://stash.reaper.fm/28129/Pitchbend%20Scaler.zip">Download it here</a></p>
+
+<p>Despite the fact that the scale factor sliders are between 0&hellip;2, you can actually use any value outside this range, even negative values (which inverts the pitchbend but not as proper as the <a href="Pitchbend Inverter.html">Pitchbend Inverter</a>); you just have to type them manually instead of moving the slider. (which I recommend anyway for surgical precision to properly compensate for range differences)</p>
+
+<h2>Pitchbend Scaler (Omni)</h2>
+<p>Same as the above, but it has only <i><u>one</u></i> parameter factor, which will scale <i><u>all</u></i> channels by it. Use this if you have only one input channel or all channels should be scaled by the same amount, it's lighter on the CPU.</p>
+
+<p class="end">If you'd like to contact or support me in any way, report bugs or similar, please go to the <a href="../../Contact.html">Contact</a> page.</p>
+
+<center><form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top"><input type="hidden" name="cmd" value="_s-xclick"><input type="hidden" name="hosted_button_id" value="VFU5T4P2ZMJ5W"><input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+<img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1"></form></center>
+
+<div class="footer"><table><td><b>This script is licensed under the <a href="http://www.gnu.org/licenses/gpl.txt">GNU General Public License</a>.</b><br><br>This program is free software: you can redistribute it and/or modify<br>it under the terms of the GNU General Public License as published by<br>the Free Software Foundation, either version 3 of the License, or<br>(at your option) any later version.<br><br>This program is distributed in the hope that it will be useful,<br>but WITHOUT ANY WARRANTY; without even the implied warranty of<br>MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. &nbsp;See the<br>GNU General Public License for more details.<br><br>You should have received a copy of the GNU General Public License<br>along with this program. &nbsp;If not, see &lt;http://www.gnu.org/licenses/&gt;.</td></table></div>
+
+</div></body></html>

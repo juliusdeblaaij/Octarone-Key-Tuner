@@ -1,0 +1,343 @@
+<html><head><link rel="stylesheet" href="../../Main.css"></head><body><div class="menu"><object type="text/html" data="../../Menu.html"></object></div><div class="main">
+<title>Key Tuner</title><h1>Key Tuner</h1>
+
+<p>This little <a href="../JSFX.html">JSFX</a> script allows you to play any scale you want with standard MIDI, with any tuning you choose, and it works on any synth as long as it supports pitchbending (or the VST2 per-note detune, but very few do). Microtonal scales? Scales with more than 12 notes per octave? No problem. You can define any kind of relationship between the notes that you want, AND tune a specific base note to whatever frequency you want.</p>
+
+<p>The way it works is pretty simple even though slightly more complex under the hood. It maps each input note based on a scale formula to a specific output note with Pitchbend (there's also a special mode with a special CC output that you can use for detuning each note manually via a not-well-known VST2 spec, but that will be explained <a href="#VSTDetuneMode">later</a>). So basically, <span class="quality">input note &rarr; output note + pitchbend &nbsp;(on a specific channel)</span>. Furthermore, for each scale, you can change the root dynamically to a note on the scale relative to the base (or key), so it still falls on the scale relative to the base, but the relationship between the notes is now around the new root. This allows you to use ONE scale even for different chord roots (but on the same scale) by just supplying a <a href="#Root Change">MIDI note on Channel 16</a> corresponding to the new root. So, you can have one Just Intonation scale for example, but be able to play chords with any root and proper relationships. What's more, it can actually store up to <b>128 Scales</b> which you can change with a Program Change as desired, the scales can be completely different this time (and arbitrary tunings for each), no need to have several instances of this script for the same instrument.</p>
+
+<p>Features:
+<ul><li>Play any scale with normal MIDI notes, and tune it to any base frequency you want.</li>
+<li>Scales can have arbitrary relationships between their notes, and any number of notes (per octave).</li>
+<li>Works with any synth as long as it accepts <b>Pitchbend</b> events by sending it (and the respective notes) on different channels for polyphony.</li>
+<li>Pitchbend range (of the receiving synth) is adjustable per instance, and goes down to half a semitone.</li>
+<li>Tries to make best use of all the available channels (max specified by user); the iteration favors notes that were released for a longer time.</li>
+<li>The <i>root</i> can be changed relative to the <i>base</i> (key) of the scale as you play! Notes/Chords will then play relative to the new root, so they will have proper relationships for chords.</li>
+<li>You can individually fine-tune (detune) notes, even in chords, using special <a href="#NoteDetune">Note After-Touch events on Channel 16</a>. This is on a note-by-note basis.</li>
+<li>Pitchbend input is accepted as well and simply added on top of the detune pitchbend. (please make sure it doesn't get clipped, though)</li>
+<li>It can store up to 128 Scales for each instance, which can be changed with <b>Program Change</b> messages</li>
+<li>Scales and their tunings use a <a href="#Format">custom text format</a> in an external tool (and imported into this), but it is pretty close to the popular <a href="http://www.huygens-fokker.org/scala/scl_format.html">Scala .scl format</a>, notes can be copy/pasted.</li>
+<li><a href="#Master">Master</a> and <a href="#Slave">Slave</a> versions are available and bundled, to share scales per process and control them from one place (the Master).</li>
+</ul></p>
+
+<p><a class="dl" href="http://stash.reaper.fm/27478/Key%20Tuner.zip">Download it here</a></p>
+
+<p><span class="warning">&#8212;DO NOT SEND NOTES WITH ZERO LENGTH TO THIS SCRIPT&#8212;</span> It will bug the script and frankly I don't care enough to fix it, because notes with zero length (i.e when note off happens at the same sample as note on for that same input note) are retarded and make no sense anyway, and if you have any around, you should definitely clean up your MIDI and fix them (remove them). A note that ends when the same note begins is fine (that case is somewhat common).</p>
+
+<p><span class="warning">&#8212;THIS SCRIPT CANNOT EDIT SCALES ITSELF, THEY ARE IMPORTED FROM EXTERNAL TOOL&#8212;</span> I've bundled a simple <a href="https://autohotkey.com/">AutoHotkey</a> script that reads the custom Scale format specific to this script and then dumps the preset or bank which can be loaded into <a href="http://www.reaper.fm/reaplugs/">ReaJS</a> (which hosts this JSFX). More information about it <a href="#Tool">below</a>. They both work fine on Linux with <a href="https://www.winehq.org/">Wine</a> nowadays, but should also work on Mac if you use that (not natively, but it's nowhere near my list of priorities sorry). Yes unfortunately <b>the import won't work</b> if hosted natively into <a href="http://reaper.fm/">Reaper</a> without <a href="http://www.reaper.fm/reaplugs/">ReaJS</a> (i.e using the built-in JSFX hoster); this is because those cannot load <b>fxp</b> or <b>fxb</b> files, and as far as I know, they do not allow loading of a preset, only <i>importing</i> one to the preset library (which is not what I want). So, you'll have to use ReaJS as a VST plugin even if you use Reaper. That said, feel free to find a solution to this problem if you want and make another external tool for it, and if you will allow it, I will link it from here!</p>
+
+<p>To install, place the <i>MIDI Tools</i> directory itself inside your JSFX <i>Effects</i> directory (the one where all your JSFX are for <a href="http://www.reaper.fm/reaplugs/">ReaJS</a>). Please note that if you decide to not use a &quot;MIDI Tools&quot; directory (perhaps you want your own personal categories), you will <u>have</u> to edit the <a href="#Slave">Slave</a> version where it <b>imports</b> the <a href="#Master">Master</a> (it is easy, just a one liner near the top, you'll figure it out) to whatever place you put it under the JSFX Effects directory (it is relative to that dir). You'll also have to modify the <a href="#Tool">scale import/export tool</a> similarly easy at the top, but that's explained below.</p>
+
+<p>I've also written a <a href="#Tutorial">tutorial</a> below to use the Key Tuner, in case you don't get it after reading the usage instructions. I realize a practical example of use would be very welcome here, but please read how it works first to get familiar with its workings and options.</p>
+
+<h2>Pitchbend &amp; Polyphony</h2>
+<p>Due to the nature of Pitchbend events, which are messages that affect the entire channel, we cannot use it directly to detune each note individually. Playing polyphonic material (like chords) with arbitrary scales is thus impossible with only one channel via this method. Thus, Key Tuner can iterate or rotate through several channels automatically for each note, splitting them up into different channels each with their own pitchbends (as they are needed), up to a maximum of 16 (max allowed by MIDI spec). Of course you can fully control this maximum. The iteration process is not straightforward, but you don't have to worry about it. It simply goes through all available channels in a sort-of round-robin fashion, but obviously it doesn't re-use a channel that still has a note playing when others are available, hence why it's more complex. It keeps track which channels are on, and which have been off for the longest time, preferring to re-use channels that were off for longer periods first. This method simply ensures the best use of the available channels, because some synths have a <i>tail</i> that is affected by pitchbend even after the note has been released.</p>
+
+<p>Note that if there are too little channels available compared to the polyphony or number of voices used at one time, it tries to keep it under control (though obviously some channels/notes will be detuned wrongly), but unfortunately it is impossible to have it completely safe in such scenario. Please do not blame me if it bugs out and ends up in an endless loop only using one channel, because I do definitely do <b>not</b> recommend using more notes at the same time than the number of channels you give it.</p>
+
+<p>Following the above logic, this script outputs in several different channels, regardless of the input channel. Thus, it is pointless to care about the input channel as it probably can't be <i>passed through</i> anyway. So, the input channel is <b>ignored</b>, that is, the script works in so-scalled <i>omni mode</i>, except for one special case. That special case is <a href="#RootChange">Channel 16</a>, which is explained below, but for now just remember that the input channel does not matter as long as it is not <b>Channel 16</b>. For this reason, if you want a central bus with multiple instruments and Key Tuners, it's best to use one Key Tuner on each MIDI bus (or similar on your DAW), although the easiest is in modular hosts.</p>
+
+<p>With that said, most MIDI events get passed through if they are not specific to this script, so unless they are MIDI notes or Pitchbend events, they will likely just pass through. (once again: except certain messages on <b>Channel 16</b>, which are treated differently).</p>
+
+<h2><a name="Parameters"></a>Parameters</h2>
+<p>Each instance of this script has 3 parameters that are separate from scales and specific to the output configuration, so they are universal for all scales (even if you change them via Program Change), but unique to the script instance. These are: the <b>Pitchbend Range</b> of the receiving synth, the number of <b>Channels</b> it has available to iterate through, and the <b>Mode</b> (explained later).</p>
+
+<p><ul class="list"><li><b>Pitchbend Range:</b> Self-explanatory. It is the range of the pitchbend for the synth you use after this effect. Of course this script needs to know how much the synth gets affected by it, so it knows exactly how much Pitchbend to send to detune the notes properly for the scale, down to maximum 14-bit precision.</li>
+<li><b>Channels:</b> The number of channels to cycle through. It won't use more channels than it has available here. This ranges from <b>1</b> to <b>16</b> (with 1 meaning it will output every note on one channel, so polyphony is likely not useable). Each note gets assigned to the next channel in the list, with channels that are still sounding (i.e still have note on) marked as "not free", so they are skipped. When a note is released, its channel is marked free and put at the end of the list. This means that newly freed channels have less of a priority than older freed channels when deciding for a new note which channel to pick, which helps with synth <i>tails</i>. Of course you should use a number of channels appropriate for your situation: if it doesn't ever need more than 3 notes at a time and it barely has any tails, a value of at most 6 should be used (and even that may be overkill), because usually less channels means less resources, since most synths are omni-mode unfortunately, and you'd have to make several instances of them to pair them to different channels.</li>
+<li><a name="VSTDetuneMode"></a><b>Mode:</b> You probably won't use this, but it specifies whether the script should act as default with Pitchbends affecting the entire detuning of the notes, or use the so-called <b>VST Detune Mode</b>. The latter is something VST-specific, which allows detuning a specific note in cents and applies it per-note, but both your host and the receiving synth must support it. This is <b>very rare</b> unfortunately; <a href="http://www.plogue.com/products/bidule/">Bidule</a> is a host that supports sending/receiving it, and some synths also support it, but unfortunately <a href="http://www.reaper.fm/reaplugs/">ReaJS</a> (which is what hosts this script) does not.<div><br></div>Since JSFX scripts don't support it, an extra <b>CC #119</b> message will be sent instead, with the amount of cents to detune for each note. As you guessed, this doesn't work when two notes start on the exact same sample on the same channel, but it works if you use multiple channels (even if the synth is Omni, because note detuning is note-specific). If your host allows, you can use this extra CC and convert it (somehow) to the VST-specific note-detuning mechanism. I don't know of any host that supports doing this except for the aforementioned (Bidule). The CC's value itself ranges from 0 to 100, which is -50&hellip;50 cents.<div><br></div>Anyway, even in <b>VST Detune Mode</b>, it will still send pitchbends and uses multiple channels (although you can set the number of channels to 1 if you don't want multiple channels). The amount sent by the pitchbends, however, is <i>very</i> small. It is there only for precision detuning: more precision than 1 cent allows. Since the detune VST-specific thing is in cents (that's the spec itself), you can't have more precision with it. So this very small pitchbend is used to detune it additionally more precisely. But I hear you asking, what if you don't care about such precision? Well why do you care about such small amounts of pitchbends then? You won't hear them anyway right? They're there for completeness and because the code already calculates them, anyway.</li>
+</ul></p>
+
+<p><a name="ParametersEdit"></a>You can set the parameters by opening the GUI. To change parameters you have to hold either <b>Shift</b> or <b>CTRL</b>, depending on the parameter. <b>Up</b> or <b>Down</b> arrow function as increasing/decreasing the value, same as <b>Mouse Wheel</b> (both work for the same thing), <b>Page Up</b> and <b>Page Down</b> do it in bigger increments. Holding <b>Shift</b> when doing that makes you change the <b>Pitchbend Range</b> (lowest is &frac12;, rest are in steps of 1), while holding <b>CTRL</b> makes you change the maximum number of <b>Channels</b> it uses.</p>
+
+<p>To change/toggle the <b>Mode</b> (which is not probably what you want, but if you understand it fully and are a geek with this stuff, go ahead), hold <b>Shift</b> and press <b>Space</b>: <b>VST Detune Mode</b> will be shown on the right of the <b>Channels</b> in the GUI, otherwise it means it's in normal mode (if there is nothing displayed).</p>
+
+<p>Without holding <b>Shift</b> or <b>CTRL</b>, using the increasing/decreasing keys or mouse wheel will only scroll the scale view. <i>This is purely a view-related thing</i>: you <u>cannot</u> edit scales from the GUI. I'm too lazy for it and it would require memcpy all over the place since the JSFX language doesn't have proper dynamic memory allocation. So how do you import scales into it? By loading presets generated by <a href="#Tool">my external tool</a> that comes with it, which is an <a href="https://autohotkey.com/">AutoHotkey</a> script. That will be explained later.</p>
+
+<p>Pressing <b>Space</b> with no modifier while the GUI is active simply toggles the view of the <b>Key Tuning</b> between <b>Hz</b> (default) and the &quot;MIDI based tuning&quot; (which is a note value based on the standard MIDI spec tuning, this can of course be fractional; for instance, the value 48.5 simply means that it has the frequency of the MIDI note 48 detuned by +50 cents). This is for view purposes only!</p>
+
+<h2><a name="RootChange"></a>Root Change</h2>
+<p>Root Changes are useful for chords &amp; intervals to switch to a new root so the relationship between the notes is around the new root, without changing the actual scale. The Root Change itself is relative to the Key (or base) of the scale which is also tuned at your discretion. <b>Note On</b> events on <b>Channel 16</b> are treated as Root Changes. Basically, the MIDI Key sent on Channel 16 becomes the new root of the scale, with its tuning calculated from the original Key's tuning and the scale relative to it.</p>
+
+<p>For <a href="https://en.wikipedia.org/wiki/Equal_temperament">Equal Temperament</a> this is completely pointless because the relationship between keys is always the same ratio (100 cents), so root changes have no meaning at all, this is why you don't have to worry about root changes in the standard equal scale, and why it is used in the first place. Of course, with computers we can change the root dynamically unlike on certain real instruments, so we can for example use Just Intonation scales. It is extremely useful to change roots of chords while still being in the same Key, without changing the entire scale.</p>
+
+<p>Note that this note on <b>Channel 16</b> does not produce any output MIDI, it's only used internally as a root change. (note off on channel 16 are similarly useless and produce nothing). And of course, because the Root Change is relative to the original Key (which never changes unless you change the scale), you don't have to worry about accumulating root changes: they don't accumulate, since they are not relative to the last root, but to the Key. If you want to change the tuning itself, you'll need to make another Scale and change to it with Program Change. In short: the <i>root</i> can be changed relative to the <i>key</i> (base) of the scale (which is tuned arbitrarily), and notes/chords will then play relative to the new root, but root changes are always relative to the base/key.</p>
+
+<p>Ok, so that is probably quite confusing to grasp, I know. To aid in this, I'll show you some simple diagrams with a simple scale example so you can understand visually how it all works and why it is so useful. Don't worry about the exact notes used on the diagram, that is not important, the important thing to consider is their relationship. The left-most key in the diagram (which looks like a <b>C</b> note on a piano) is the <i>Key</i> (or base) of the scale, which also happens to be the root in the first diagram (root was not changed so it is the same as the key). This scale has only <b>two</b> notes; the first one is 100 cents above the root, and the second is one octave above (1200 cents). So, the note after the root in the diagram (the black key!) is 100 cents apart, and the 2nd note after the root is the octave (i.e <span style="white-space:nowrap"><span style="font-size:50%;vertical-align:+38%">2</span>&frasl;<span style="font-size:50%;vertical-align:-16%">1</span></span> frequency ratio), after that the scale repeats (100 cents, 1200 cents, 100 cents, 1200 cents, and so on).</p>
+
+<p>So the scale tuning on the keyboard would look something like this:</p>
+
+<table style="table-layout:fixed;overflow-x:auto;border-collapse:collapse;margin-top:1.42em;margin-bottom:1.42em;margin-left:6.515%;min-width:331px;width:93.484%"><td style="text-align:left;vertical-align:top;white-space:nowrap">
+<table style="table-layout:fixed;border-collapse:collapse"><td><div style="float:left;width:135px"><div style="float:right"><b>&#8628;</b></div><div style="float:right;margin-top:-0.2em">423.79Hz</div></div>
+<div class="fliph" style="float:left;margin-left:32px"><b>&#8628;</b></div><div style="float:left;margin-top:-0.2em">847.57Hz</div></td></table>
+
+<table style="table-layout:fixed;border-collapse:collapse;margin-top:-0.25em"><td><div style="background:white;float:left;margin-left:88px;border-left:2px solid black;border-top:2px solid black;border-bottom:2px solid black"><div style="float:left"><div style="float:left;width:31px;height:54px"></div>
+<div style="float:left;border-left:19px solid black;width:22px;height:54px"></div>
+<div style="float:left;border-left:19px solid black;width:31px;height:54px"></div><br>
+<div style="float:left;width:39px;height:31px"></div>
+<div style="float:left;border-left:2px solid black;width:40px;height:31px"></div>
+<div style="float:left;border-left:2px solid black;width:39px;height:31px"></div></div>
+<div style="float:left;border-left:2px solid black;width:39px;height:85px"></div></div>
+<div style="float:left;margin-left:6px;border-top:2px solid black;border-bottom:2px solid black;width:6px;height:85px"></div>
+<div style="float:left;margin-left:6px;border-top:2px solid #404040;border-bottom:2px solid #404040;width:6px;height:85px"></div>
+<div style="float:left;margin-left:6px;border-top:2px solid #606060;border-bottom:2px solid #606060;width:6px;height:85px"></div>
+<div style="float:left;margin-left:6px;border-top:2px solid #808080;border-bottom:2px solid #808080;width:6px;height:85px"></div>
+<div style="float:left;margin-left:6px;border-top:2px solid #A0A0A0;border-bottom:2px solid #A0A0A0;width:6px;height:85px"></div></td></table>
+
+<table style="table-layout:fixed;border-collapse:collapse;margin-bottom:1.81em"><td><div style="float:left;width:114px"><div class="flipv" style="float:right;line-height:50%"><b>&#8628;</b></div><div style="float:right;line-height:75%">400Hz</div></div>
+<div style="float:left;margin-left:14px;width:47px"><center style="line-height:50%"><b style="font-size:125%">&uarr;</b><br><br>800Hz</center></div>
+<div class="flipb" style="float:left;margin-left:12px;line-height:50%"><b>&#8628;</b></div><div style="float:left;line-height:75%">1600Hz</div></td></table>
+
+<table class="list">
+<tr><td>400Hz</td><td>The <b>Key</b> of the scale (tuned at 400Hz); it's also the <b>root</b>.</td></tr>
+<tr><td>423.79Hz</td><td>The first note (+100 cents).</td></tr>
+<tr><td>800Hz</td><td>The second &amp; last note (+1200 cents).</td></tr>
+<tr><td>847.57Hz</td><td>The first note of the 2nd octave (+100 cents); scale repeated.</td></tr>
+<tr><td>1600Hz</td><td>The second &amp; last note of the 2nd octave (+1200 cents).</td></tr>
+</table></td></table>
+
+<p>As you can see from the above, the scale is pretty simple and only has two notes. Key Tuner automatically repeats the scale as it assumes the last note is always the start of a new octave, so you don't have to worry about it. However, let's look what the root change does, and how it shifts the relationship between the notes. Once again, the above is the so-called &quot;base scale&quot;, which means the <b>root</b> is the same as the <b>Key</b>. This is very important, because <i><u>the root is always changed from this scale</u></i>.</p>
+
+<p>What does that mean? Well, look at the diagram again. If you want to do a root change, that is the tunings you'll have to look out for, <i><u>regardless of where the root is at currently</u></i>. So, for example, let's say we want to change the root to the second note in the above diagram. In our scale, the first two notes are 100 cents apart, so we'd like to keep that relationship when we change the root. If we don't change the root, the relationship between the first black key in the diagram and the next white key is much higher, it is 1100 cents! Clearly playing an interval between the second and third keys is not exactly what we'd want here to make that 100 cents interval.</p>
+
+<p>So, to do the root change, send the MIDI Note corresponding to the first black key on <b>channel 16</b>. That's it, the root has been changed. <i><u>Please note, once again, that the <b>Key</b> defines the tuning of the root</u></i>, regardless of what the root is currently, so with the above diagram the root can <b>only</b> be part of the set of frequencies found there: 400Hz, 423.79Hz, 800Hz, 847.57Hz, 1600Hz, etc. It also means that <i><u>it does not matter</u></i> on which octave you send the MIDI Note, because it will be the &quot;same&quot; note for the root change, so it's only for convenience (i.e a <b>C</b> is a <b>C</b>, doesn't matter on which octave).</p>
+
+<p>Alright, here's the diagram after the root change:</p>
+
+<table style="table-layout:fixed;overflow-x:auto;border-collapse:collapse;margin-top:1.42em;margin-bottom:1.42em;margin-left:6.515%;min-width:331px;width:93.484%"><td style="text-align:left;vertical-align:top;white-space:nowrap">
+<table style="table-layout:fixed;border-collapse:collapse"><td><div style="float:left;width:135px"><div style="float:right"><b>&#8628;</b></div><div style="float:right;margin-top:-0.2em">423.79Hz</div></div>
+<div class="fliph" style="float:left;margin-left:32px"><b>&#8628;</b></div><div style="float:left;margin-top:-0.2em">847.57Hz</div></td></table>
+
+<table style="table-layout:fixed;border-collapse:collapse;margin-top:-0.25em"><td><div style="background:white;float:left;margin-left:88px;border-left:2px solid black;border-top:2px solid black;border-bottom:2px solid black"><div style="float:left"><div style="float:left;width:31px;height:54px"></div>
+<div style="float:left;border-left:19px solid black;width:22px;height:54px"></div>
+<div style="float:left;border-left:19px solid black;width:31px;height:54px"></div><br>
+<div style="float:left;width:39px;height:31px"></div>
+<div style="float:left;border-left:2px solid black;width:40px;height:31px"></div>
+<div style="float:left;border-left:2px solid black;width:39px;height:31px"></div></div>
+<div style="float:left;border-left:2px solid black;width:39px;height:85px"></div></div>
+<div style="float:left;margin-left:6px;border-top:2px solid black;border-bottom:2px solid black;width:6px;height:85px"></div>
+<div style="float:left;margin-left:6px;border-top:2px solid #404040;border-bottom:2px solid #404040;width:6px;height:85px"></div>
+<div style="float:left;margin-left:6px;border-top:2px solid #606060;border-bottom:2px solid #606060;width:6px;height:85px"></div>
+<div style="float:left;margin-left:6px;border-top:2px solid #808080;border-bottom:2px solid #808080;width:6px;height:85px"></div>
+<div style="float:left;margin-left:6px;border-top:2px solid #A0A0A0;border-bottom:2px solid #A0A0A0;width:6px;height:85px"></div></td></table>
+
+<table style="table-layout:fixed;border-collapse:collapse;margin-bottom:1.81em"><td><div style="float:left;width:114px"><div class="flipv" style="float:right;line-height:50%"><b>&#8628;</b></div><div style="float:right;line-height:75%">224.49Hz</div></div>
+<div style="float:left;margin-left:14px;width:47px"><center style="line-height:50%"><b style="font-size:125%">&uarr;</b><br><br>448.98Hz</center></div>
+<div class="flipb" style="float:left;margin-left:12px;line-height:50%"><b>&#8628;</b></div><div style="float:left;line-height:75%">897.97Hz</div></td></table>
+
+<table class="list">
+<tr><td>224.49Hz</td><td>This is <i><u>not</u></i> the <b>root</b> anymore; it's one note <i><u>below</u></i> (-1100 cents, previous octave's note above the root).</td></tr>
+<tr><td>423.79Hz</td><td>The <i><u>new</u></i> <b>root</b>, because we changed it. Note that its <i><u>tuning</u></i> is based on the <i><u>original</u></i> key's scale.</td></tr>
+<tr><td>448.98Hz</td><td>The first note in the scale now, since the <b>root</b> was changed, +100 cents.</td></tr>
+<tr><td>847.57Hz</td><td>The second &amp; last note (+1200 cents compared to root), since the <b>root</b> was changed.</td></tr>
+<tr><td>897.97Hz</td><td>The first note of the 2nd octave (+100 cents); scale repeated.</td></tr>
+</table></td></table>
+
+<p>As you can see, we changed the root to the first black key now, so the relationships changed: it is truly the new root of the scale, and now when playing the interval from the first black key to the second white key (black key is now the root), we'll get 100 cents interval, which is what we wanted! Please note that you must send the root change before triggering any notes if you want them to be changed, at most you can send it at the exact same time. Do <i><u>not</u></i> send it later, even by 1 tick or sample, as the notes will not be root-changed in that case (unless you retrigger them).</p>
+
+<p>But remember that the <i><u>tuning</u></i> of the root is <i><u>always</u></i> relative to the original scale (i.e around the key). For example, if we were to <b>change the root back</b> by sending it the MIDI Note corresponding to the left-most white key (which would now be 224.49Hz if triggered), the new root's tuning will be the <i><u>original</u></i> 400Hz. If you were to change the root to the second white key, instead, it would be 800Hz, because once again root changes are <i><u>always</u></i> relative to the original key's scale. This is extremely important to not drift off the key of the song when doing many root changes! In other words, root changes do not accumulate, so you don't need to worry about it.</p>
+
+<p>Like previously mentioned, it doesn't matter on which octave (in the scale, of course) you send the respective root change, because it's the same key just on a different octave. If you were to send the root change to the second white key, the tuning would end up <i><u>exactly</u></i> the same as the original diagram. In other words, it is <i><u>completely equivalent</u></i> to sending the root change on the first white note, because the scale has only two notes! So both notes are the same, just repeated on different octaves. (think about it, changing it to second white key would make the root be tuned to 800Hz, and two notes down would be the same note minus one octave, thus 400Hz, so it's the exact same thing)</p>
+
+<h2><a name="NoteDetune"></a>Individual Note Detuning</h2>
+<p>You can detune notes individually on a note-by-note basis in addition to the scale itself, but only temporarily until the given note is triggered. This feature exists for you to be able to fine-tune notes in a harmony so they can sound better together (some harmonies in certain scales are impossible so you'll have to compromise), or to control the <i>beats</i> when harmony is involved which is done by detuning notes. To do this, you need to use <b>Note After-Touch</b> events on <b>Channel 16</b>, which are not passed through, but treated as &quot;next note detune&quot; events for the Key Tuner.</p>
+
+<p>I used Note After-Touch events for this purpose, because they have a specific note number and a <i>pressure</i> value. The note number specifies the note itself to detune, while the <i>pressure</i> value specifies the detuning done to that note. Keep in mind that this detuning is for <i><u>only one</u></i> note with that number, literally the next note <i><u>only</u></i>. For example if you play the note C3 and want it detuned by around +25 cents, but then play it two more times and don't want it detuned afterwards, all you have to do is put a Note After-Touch event in front of the first C3 with the note C3 (it will only affect the next C3 note after the Note After-Touch event itself, which is the first C3 note here) and the pressure set to around &frac34; of its full value.</p>
+
+<p>The reason it's &frac34; is because at the middle there is almost no detuning (a detuning of zero is not possible, because it is pointless, if you want zero detuning then don't use any events at all!), as you go up it increases, and as you go down from mid it decreases&hellip; up to <b>50 cents</b> in each direction. Thus the lowest pressure (pressure 0) would be a -50 cents detune, while highest pressure is +50 cents, with other values in-between those. What if you want to detune it by more than &plusmn;50 cents you ask? Well, these events actually accumulate, but only until the next note of that number (at which point they reset to zero, because they are temporary). So you can add two Note After-Touch on C3 before the actual C3 note, one with +50 cents and the other with +25, and you'll end up with a +75 cents detune for that note. (they accumulate)</p>
+
+<p>The next C3 will, of course, not be detuned since it gets reset. Obviously, if you had any other note (that is not a C3), like say a G3, between the event and the C3 note, it won't affect the detuning at all since the detuning is per-note (i.e the G3 will not be detuned, and the C3 will be detuned by +75 cents still, it only gets reset on that specific note that matches).</p>
+
+<h2><a name="Format"></a>Scale Text Format</h2>
+<p>Scales for the Key Tuner are written in simple text files which are similar to the <a href="http://www.huygens-fokker.org/scala/scl_format.html">Scala .scl format</a> but not quite the same. This is because I wanted them to be more human-readable, but also because they need to have <b>tuning</b> information for the scale, not to mention hold multiple scales in a single text file (up to 128). In other words, the scale text file is the entire data of the Key Tuner itself, except the <a href="#Parameters">3 parameters above</a>. That said, you can copy &amp; paste the notes from a .scl file to a scale here and it will work, but you need to be careful with other data before, as the format is quite strict. Please note that this text format, by itself, <b>is not processed or read</b> by Key Tuner. Its definition and strictness is enforced only by the <a href="#Tool">import/export tool</a> below.</p>
+
+<p>Again, the scale text format has a very strict layout, and it does not allow much freedom in how you format it at all, except for whitespace in most cases. A simple scale text looks like this:</p>
+
+<pre>[Scale 1]
+Key: 48
+Key Tuning: 48
+Number of Notes: 1
+Notes:
+  1200.0</pre>
+
+<p>This is the default scale when you load up the Key Tuner, and the above is the text file for it. <b>[Scale 1]</b> means the first scale (corresponding to Program Change 0), these must be ordered exactly &amp; consecutively. Once again, the layout is strict, so be sure to follow it (though most whitespace can be added optionally). You can put comments between the end of a Scale and the beginning of another, all lines are ignored until the next <b>[Scale #]</b> is found (in exactly that strict format). Here's two scales in another file:</p>
+
+<pre>[Scale 1]
+Key: 48
+Key Tuning: 48
+Number of Notes: 1
+Notes:
+  2
+
+>>> Lines here are comments
+>>> This is still part of the text file (even the >>>), completely ignored until [Scale 2]
+[Scale 2]
+Key: 36
+Key Tuning: 48
+Number of Notes: 6
+Notes:
+  100.0
+  150.0
+  200.0
+  250.0
+  400.0
+  2/1</pre>
+
+<p>In this file, we have defined two scales, the first one is the same as the previously explained scale, while the second is a simple random one I made up just now. How is the first one the same you ask? Basically, at the <b>Notes:</b> element, which has notes appended on new lines after the <b>Notes:</b> line, if one of the notes has no <b>.</b> (dot) symbol in it, it is assumed to be a <i><u>ratio</u></i>. Otherwise, it's in <i><u>cents</u></i>. So in our case, the value 2 means a ratio of <span style="white-space:nowrap"><span style="font-size:50%;vertical-align:+38%">2</span>&frasl;<span style="font-size:50%;vertical-align:-16%">1</span></span>, which is 1200 cents (thus equal to 1200.0, hence why the .0 here is important, to mark it as cents). Here the <span style="white-space:nowrap"><span style="font-size:50%;vertical-align:+38%">2</span>&frasl;<span style="font-size:50%;vertical-align:-16%">1</span></span> has implicit fraction, otherwise you can use any ratio such as <span style="white-space:nowrap"><span style="font-size:50%;vertical-align:+38%">2</span>&frasl;<span style="font-size:50%;vertical-align:-16%">3</span></span> (specify it as <b>2/3</b>) and so on. (but no <b>.</b> symbols because they would be cents, so they have to be integers &rarr; e.g: the fraction <b>2.5/3</b> is invalid)</p>
+
+<p>The scale note rules are the same as in a <a href="http://www.huygens-fokker.org/scala/scl_format.html">Scala .scl file</a>: all notes are relative to the root, with the last note being <i>repeated</i> into the scale as a new root. For example, <b>[Scale 1]</b> above has one note, and each subsequent note on the MIDI keyboard is a different octave apart (1200 cents) because the last note (with a ratio of <span style="white-space:nowrap"><span style="font-size:50%;vertical-align:+38%">2</span>&frasl;<span style="font-size:50%;vertical-align:-16%">1</span></span>) is the new root. In <b>[Scale 2]</b>, the first note is 100 cents apart (one semitone) from the root, the second is 150 cents apart, third one is 200 cents apart, and so on. Then it repeats at the 6th note: the 6th note is 1200 cents apart (<b>2/1</b> ratio &rarr; twice the frequency), with the 7th note being 1300 cents apart (because 1200<b>+</b>100, the first note which is 100 cents gets repeated on the next octave automatically), it's just on a different octave. This is done without you having to worry about it, just simply input the scales as you wish, per octave. Note that you can order the scale notes in any way you want, since they're all relative to the root, it will get automatically sorted, but <i>negative cents</i> are not allowed, or ratios lower than 1 (which amounts to the same thing). 0 cents (or ratio of 1) is also not allowed since it would be a duplicate of the root, which is pointless (any duplicate notes are also removed automatically by the way).</p>
+
+<p>Note that octaves don't have to end up on a <span style="white-space:nowrap"><span style="font-size:50%;vertical-align:+38%">2</span>&frasl;<span style="font-size:50%;vertical-align:-16%">1</span></span> ratio at all. In fact, they can be any ratio whatsoever, but having an octave with that ratio is more convenient and almost all scales use it. Still, if you decide to geek around completely obscure scales, you have the ability to. The last note will always represent a new octave, and the note after it will have the relationship as the first note to it. Because of the <span style="white-space:nowrap"><span style="font-size:50%;vertical-align:+38%">2</span>&frasl;<span style="font-size:50%;vertical-align:-16%">1</span></span> convention, however, most scales will have the last note as <b>2</b> or <b>2/1</b> or <b>1200.0</b>, even though you can actually put it anywhere (because it gets sorted automatically). Even so, scales can span higher than a <span style="white-space:nowrap"><span style="font-size:50%;vertical-align:+38%">2</span>&frasl;<span style="font-size:50%;vertical-align:-16%">1</span></span> ratio, you can make them as large as you want, but in that case the <b>2/1</b> note (if there is any in the first place) will obviously not be the last note in the scale.</p>
+
+<p>Finally, the other information for the scale apart from the notes define mostly information on how to <b>tune</b> the scale. A scale by itself only defines relationships between the notes around a root, not how it's tuned. So how is the root tuned? i.e what frequency does the root have? To define the <b>base</b> (or key) and how it sounds, the first two parameters <b>Key</b> and <b>Key Tuning</b> are used. <b>Key</b> is the MIDI note number that triggers the base, and <b>Key Tuning</b> is how it sounds. In the above examples, <b>[Scale 1]</b> is simple: when pressing MIDI Key 48, the sound of MIDI Key 48 is sounded, exactly. Then the scale is built around this base note. Pressing Key 49, for example, will trigger one octave above Key 48 (due to the scale only having the octave note), while Key 47 will trigger one octave below 48. (here no Pitchbend is even required)</p>
+
+<p><b>[Scale 2]</b> however, has <b>Key: 36</b>, and <b>Key Tuning: 48</b>. In this case, pressing MIDI Key 36 will trigger the sound of MIDI Key 48. The Key Tuning can be fractional by the way, in this case it is tuned to a fractional note from the default MIDI spec (i.e it detunes it). But even more importantly, <i><u>you can specify the Tuning in <b>Hz</b></u></i>, which depending on the scale, is much more reasonable than relying on the MIDI Standard's Equal Tempered spec with A4=440Hz. For example, if you want Key 36 to trigger the sound of 440.5Hz (even though it's <b>C</b> not <b>A</b>, but who cares, <i>ANY</i> scale and tuning can be built), then use the following:</p>
+
+<pre>Key: 36
+Key Tuning: 440.5Hz</pre>
+
+<p><b>Number of Notes</b> is self-explanatory: it's the number of notes in the scale. Note that this must match, any further notes will be <b>ignored</b> and treated as <b>comments</b> until next scale. For the most part, though, you can just copy-paste .scl file notes and it will just work, which was my intention in the first place. To actually know what to copy from the .scl file, open the .scl file with text editor and ignore the lines starting with <b>!</b> (exclamation) but also skip through the first non-comment line which is a description of the scale. The line after that (which has no exclamation mark) is the <b>Number of Notes</b> so copy &amp; paste it there. After that, all the following numbers represent the <b>Notes</b> of the scale so just copy &amp; paste them after the <b>Notes:</b> element, that's it.</p>
+
+<p>Please note that the <b>Key</b> element defines the so-called base (or key) of the scale and its tuning. Initially, it is indeed the root of the scale, but the root <i>can be changed</i> dynamically around this base so that chords can be played with any root while having the scale's relationships, as explained in the <a href="#RootChange">Root Change</a> section above. So don't confuse the base or key with the root. The root is relative to the key, while the scale is relative to the root, so technically there are two identical scales with different tunings. The first scale (the base) has its root at the <b>Key</b>, and root changes are &quot;notes&quot; in this scale. The second scale is the actual scale, which is relative to the root defined by the first one.</p>
+
+<h2><a name="Tool"></a>Scale Import/Export Tool</h2>
+<p>This is a little <a href="https://autohotkey.com/">AutoHotkey</a> script that comes bundled with the Key Tuner (under the Tools directory), which allows you to convert a scale based on the above <a href="#Format">Scale text format</a> into a bank (<b>fxb</b>) that can be loaded into <a href="http://www.reaper.fm/reaplugs/">ReaJS</a>. In this way, you can edit the scales with a simple text editor as above, and load them (after conversion) into the Key Tuner. Please note that <i>you <b>will need</b> <a href="https://autohotkey.com/">AutoHotkey</a></i> to use this script, and I recommend installing it and associating it with .ahk extension files.</p>
+
+<p>If you installed it, you can simply double click on the tool's script (<b>Key Tuner Script.ahk</b> under Tools directory), if not you'll have to specify this tool as first argument (more information on its website). Either way, once you launch it, a file browser will open up. Simply locate the scale text file (perhaps with .txt extension) and it will create a <b>fxb</b> file in the same directory with the same name, but with .fxb extension. That's it. Just load the bank after into <a href="http://www.reaper.fm/reaplugs/">ReaJS</a> and you've successfully imported the scales into Key Tuner!</p>
+
+<p>You can actually reverse this process, too. Export the bank or preset from Key Tuner into a <b>fxb</b> or <b>fxp</b> file (just use your host's capabilities), launch this tool, but point it to the exported file instead. It will automatically identify it as an exported bank or preset, and dump the scale in text format in the same directory, in a file with the same name but with .txt extension instead. Really, it's that easy.</p>
+
+<p><span class="warning">&#8212;NOTE THAT THE PARAMETERS ARE NOT STORED IN THE SCALE FILE&#8212;</span> This means that they will be reset to defaults when you load/import the scale into Key Tuner, so please remember to set them to what you need again. This is because the parameters themselves <b>are not tied</b> to a scale. A way simpler solution is below with the <a href="#Master">Master</a> and <a href="#Slave">Slave</a> versions, where only the Master will have to be updated everytime you change its scales.</p>
+
+<p><span class="warning">&#8212;IF YOU HAVEN'T PLACED THE JSFX UNDER 'MIDI Tools' DIRECTORY&#8212;</span> You will have to edit the tool! Don't worry, it's easy. Just edit the <b>Key Tuner Script.ahk</b> with a simple text editor. At the top, you will notice the line that goes like so: <b>JSPath := &quot;MIDI Tools/Key Tuner&quot; . JSPath</b> &nbsp;Simply edit the string between the quotes to wherever you placed it.
+
+<p><span class="warning">&#8212;IF YOU CHANGED ReaJS's VSTid&#8212;</span> You will have to edit the tool! Don't worry, it's easy. Just edit the <b>Key Tuner Script.ahk</b> with a simple text editor. At the top, you will notice the line that goes like so: <b>VSTid := &quot;rejs&quot;</b> &nbsp;Simply edit it to whatever 4-byte ID you use for the one hosting Key Tuner. If you don't know what a VSTid is, or how to change it for <a href="http://www.reaper.fm/reaplugs/">ReaJS</a>, then you don't have to worry about this at all. Changing the ID is useful if you have several versions of it with different configurations. On that note, if you know what a VSTid is but want to know how to modify it for <a href="http://www.reaper.fm/reaplugs/">ReaJS</a>, look at <b>reajs_info.txt</b> when you download it.</p>
+
+<h2><a name="Master"></a>Key Tuner (Master)</h2>
+<p>This is a different version of the Key Tuner that works completely identical to it, except that it stores its Scales into a shared memory, accessible to <a href="#Slave">Key Tuner (Slave)</a> instances of this script (as long as they are in the same process). The fact that <b>128 Scales</b> are available to be used in the Master (and thus in the shared memory) should be plenty enough, even with just one process. Other than that, it functions the same as Key Tuner. By itself, there is really no difference (but slight performance degradation). Keep in mind that you need to use the <b>Key Tuner Script (Master).ahk</b> for this one though, due to different filename string (other than that, no changes in the file format).</p>
+
+<p>I hear you ask, why is this useful? Well first, it only stores the scales once in the project and in memory (at least for each process), which leads to the second and more important point: editing one scale (the one in the master) will change all of the Slaves automatically, you only need to use the .ahk script on the Master, the Slaves don't even store scale information but read it from the Master itself. Most of the time, all your instruments should be on the same scale anyway, at least to play in harmony, so this avoids duplication errors and makes it overall much easier and faster to use. If for some reason you need a separate scale or tuning for another synth, then you can also use a different <b>[Scale]</b> from the shared memory as well, just send it the necessary Program Change at the beginning of the project or similar. Like I said, 128 scales should be more than enough.</p>
+
+<p>As before, you can edit the Master instance's <a href="#Parameters">parameters</a> with the GUI and view the scales as well. The parameters are <i><u>not</u></i> in the shared memory pool, they are specific <i><u>only</u></i> to the Master instance. Slaves have their own! So don't worry about synths using different pitchbend ranges or different polyphonies (and you want different max number of channels for some), each Slave will get its own set of parameters.</p>
+
+<p>The code is stripped of most comments since it is based on the Key Tuner, with only few of them explaining some big differences, especially the shared memory layout (can't be helped, it's hardcoded).</p>
+
+<p><span class="warning">&#8212;THE SHARED MEMORY USED BY MASTER/SLAVE IS PER PROCESS&#8212;</span> This means that if you <b>bridge</b> or <b>firewall</b> the Master/Slave, they will not see each other, unless they are bridged in the same process. How that is done entirely depends on the bridging mechanism itself and the software. Also, a second instance of your host will have its own Master/Slave scales, they won't mess each other up. But if you load two projects in the <b>same</b> process (depending on host), you might run into conflicts, so <b>be careful</b>. For example, you can also bridge or firewall a subhost that will host, on its own, the Master &amp; Slaves. In this case, the Master/Slaves are isolated from the rest of the project, but <b>will</b> communicate with each other since they're both bridged in the same process.</p>
+
+<p><span class="warning">&#8212;PLEASE ONLY USE ONE MASTER PER PROCESS&#8212;</span> If you use more than one Master in a process, they will fight over the shared memory and all hell will break loose!</p>
+
+<h2><a name="Slave"></a>Key Tuner (Slave)</h2>
+<p>These are the Slaves to the <a href="#Master">Key Tuner (Master)</a> above: they read the scales from the shared memory pool which is initialized by the Master. Unfortunately, it is impossible to wait until the Master initializes the pool, so to avoid bugs with Slaves loading before the Master, the Slave gets initialized to an invalid scale. <u>It is <i>mandatory</i> for a Slave to get a <b>Program Change</b> for the specific scale</u> (even if there's only one, send it a <b>PC=0</b>) before it is able to play any notes!</p>
+
+<p>Slaves have their own set of <a href="#Parameters">parameters</a> (<b>Pitchbend Range</b>, <b>Channels</b>, and <b>Mode</b>), individual to each Slave, editable via the GUI as explained in the <a href="#ParametersEdit">Parameters section</a>. You can also view the scales from the Slave's GUI, even though you cannot modify it <i><u>even</u></i> by loading a bank/preset (because the slave stores absolutely no information other than the 3 parameters, stored as a single packed float).</p>
+
+<p><span class="warning">&#8212;DO NOT USE SLAVES WITHOUT A MASTER IN THE SLAVE'S PROCESS&#8212;</span> The shared memory won't be initialized to any scales, but to zero instead, and zero number of scales may bug out. Just don't do it. Always insert a Master before any Slaves, for each process (if bridging another subhost)</p>
+
+<h2><a name="Tutorial"></a>Short Tutorial</h2>
+<p>&quot;Ok champ, how do I actually use this thing on a real musical scale?&quot; I hear you ask. You've arrived at this point, but are still confused how the heck to actually use it, where to start, and how to use a practical scale? I mean by now it's been all theory, but where's the music? Or rather, how to actually incorporate it into your project?</p>
+
+<p>Good questions, and honestly, if you are western-trained (like most people), you are probably not looking for some weird scale. Don't worry, I won't go exotic on you at all. I've written this short but practical tutorial example that will simply show you how to make a scale that you might very well use a lot &mdash; <a href="https://en.wikipedia.org/wiki/Just_intonation">Just Intonation</a>. It is a western scale and it is very similar to the equal one but not quite! We'll start with the basics of basics and see how to import it into Key Tuner and make use of it afterwards. What's more, we'll use the <a href="#Master">Master</a> and <a href="#Slave">Slave</a> versions, to illustrate how easy it is to set up slaves as well (the process is really the same for Master as with the normal version, except for using the different tool).</p>
+
+<p>We'll begin by simply deciding on the scale itself to use. You could make one up from scratch, but that's probably not your thing, so let's rather take one from the <a href="http://www.huygens-fokker.org/scala/downloads.html#scales">Scala Archive</a>, which is the massive collection of scales from <a href="http://www.huygens-fokker.org/scala/">Scala</a>, and is very well known amongst people dealing with this kind of stuff. Well, yes, you <i>could</i> also just search for the Just Intonation scales, but I think using an example from a .scl file is better to understand how to do this process.</p>
+
+<p>Ok, so you've got the archive, let's find one of the just intonation scales and use it. The common basic one (that sounds great) is the so-called &quot;basic Just Intonation with a 7 limit tritone&quot; and it has 12 notes per octave (same as the normal western scales, makes it easier for this example). The scala file in question is <b>ji_12.scl</b>, so proceed to open it up with a simple text viewer or editor. You should be presented with this:</p>
+
+<pre>! ji_12.scl
+!
+Basic JI with 7-limit tritone. Robert Rich: Geometry
+ 12
+!
+ 16/15
+ 9/8
+ 6/5
+ 5/4
+ 4/3
+ 7/5
+ 3/2
+ 8/5
+ 5/3
+ 9/5
+ 15/8
+ 2/1</pre>
+
+<p>As explained in the <a href="#Format">Scale Text Format</a> section above, the .scl file is pretty similar to it, and the lines starting with exclamation mark in the .scl file are comments and should be ignored. The first non-comment line is a description of the scale, and should likewise be ignored. In our case, that is the line: &quot;Basic JI with 7-limit tritone. Robert Rich: Geometry&quot;. Skip it.</p>
+
+<p>The next non-comment line tells us the <b>Number of Notes</b> of the scale. Now, before doing anything else, use a simple text editor and create a new .txt file, which will be our <a href="#Format">Scale Text Format</a> that we'll use for the <a href="#Tool">Scale Import/Export Tool</a>. Just call it &quot;scale.txt&quot; for simplicity, and populate it as follows (just a simple template):</p>
+
+<pre>[Scale 1]
+Key:
+Key Tuning:
+Number of Notes: 12
+Notes:</pre>
+
+<p>As you can see, the only element we filled so far is the <b>Number of Notes</b> because we just got that from the .scl file as described earlier. Next, let's fill out the notes in the scale. This is easy, look back at the .scl file. All the lines after the <b>Number of Notes</b> (which is the <b>12</b> line) are the notes themselves &mdash; they're just preceeded by a comment line which we'll ignore. So, simply copy &amp; paste the notes to our &quot;scale.txt&quot; file after the <b>Notes:</b> line. Notice that I've added an extra space at the beginning of each note line to indent them better, it doesn't matter though, since whitespace at the beginning of a line is ignored, I just think it looks better this way:</p>
+
+<pre>[Scale 1]
+Key:
+Key Tuning:
+Number of Notes: 12
+Notes:
+  16/15
+  9/8
+  6/5
+  5/4
+  4/3
+  7/5
+  3/2
+  8/5
+  5/3
+  9/5
+  15/8
+  2/1</pre>
+
+<p>We're done with the .scl file now, you can close it, because we've finished the scale itself. But hold your horses! We're not finished just yet with our &quot;scale.txt&quot;, because we have to <i><u>tune</u></i> it now and give it a Key (or base). We can tune it however we want, but for the purposes of this example, since we're already composing in Just Intonation, let's tune it in a classic way, with <b>A4=432Hz</b> (unlike the MIDI 440Hz for A4). Unfortunately, to do that properly without looking it up, there's a very simple math involved, because we want our Key to be at a <b>C</b> (i.e <b>C4</b>) and not <b>A</b>, just to be consistent (it doesn't really matter, though, you can just as easily tune it around <b>A4</b> if you wish, but I'd like to give you an example here).</p>
+
+<p>Let's see how to do that. In our Just Intonation scale (with 12 notes per octave), <b>A</b> is 9 notes above <b>C</b>, with the ratio <span style="white-space:nowrap"><span style="font-size:50%;vertical-align:+38%">5</span>&frasl;<span style="font-size:50%;vertical-align:-16%">3</span></span> to it. So to get <b>C4</b>'s tuning, it's as simple as <i>dividing</i> <b>A4</b>'s tuning (432Hz) by its ratio to <b>C4</b> &mdash; in other words: <b>432Hz&times;3&divide;5 = 259.2Hz</b>. So now that we've got <b>C4</b>'s tuning, we can fill in the tuning elements. Of course, for this example, we'll use the <b>C4</b> on the MIDI keyboard to trigger it, since it makes the most sense (with exotic scales you'll have to improvise since they don't follow the western keyboard, so it can be anything you want or feel most comfortable with). That MIDI Note is <b>note #48</b> on the MIDI keyboard. So we have completed our &quot;scale.txt&quot;:</p>
+
+<pre>[Scale 1]
+Key: 48
+Key Tuning: 259.2Hz
+Number of Notes: 12
+Notes:
+  16/15
+  9/8
+  6/5
+  5/4
+  4/3
+  7/5
+  3/2
+  8/5
+  5/3
+  9/5
+  15/8
+  2/1</pre>
+
+<p>That's it! We've created the scale, now it's time to convert it to a bank/preset and load it into <a href="http://www.reaper.fm/reaplugs/">ReaJS</a>. It's easy, assuming you've installed <a href="https://autohotkey.com/">AutoHotkey</a> as instructed in the <a href="#Tool">Scale Import/Export Tool</a> section (hey, don't skip it!), just go to the Tools directory or wherever you placed the .ahk scripts, and double click on the <b>Key Tuner Script (Master).ahk</b> file (or launch it from command line, if that's your thing and you feel like geeking around). A file browser window should have popped up. Locate the &quot;scale.txt&quot; file and simply select it/open it/double click it. Done! You should now have a &quot;scale.fxb&quot; file created in the same directory as &quot;scale.txt&quot; &mdash; <i><u>this</u></i> is the file we'll load into ReaJS.</p>
+
+<p>Fire up your DAW or audio editor or whatever, and insert ReaJS as an effect where you want it to process the MIDI. For the purposes of this example, we will use a hypothetical (pretty common though) synth with adjustable pitch bend range, but which plays in Omni mode &mdash; that is, it ignores the input channel. We don't want to use any normal pitch bending on this synth, so set it to the lowest range it supports which is likely going to be <b>&#177;1</b> semitone (this increases precision for the microtuning, the lower the range is, minimum useable would be <b>&#177;0.5</b> semitones but most synths don't support that).</p>
+
+<p>We'd also like to play at most two notes at once on this synth, so we'll have to duplicate it after setting it up, and send the two channels from Key Tuner each to a separate instance of this synth. This fully depends on your DAW, so remember now, send MIDI Channel 1 after Key Tuner to one instance of the synth (the original), and MIDI Channel 2 to the other instance of the synth (an exact duplicate), then merge the output of the synths to one place. Please remember that the <i><u>reason</u></i> we need to duplicate the synth is because it ignores the input channel, and thus it cannot make a difference between pitchbend on channel 1 compared to channel 2, so it will detune all its output (which is bad). If your synth <b>does</b> separate pitchbends per channel and their notes, then you will not have to do this duplication step at all!</p>
+
+<p>After you've set it up, it's time to load up the ReaJS. Open it up, and load the &quot;scale.fxb&quot; bank via your DAW's capabilities. That's it, we've loaded our Scale into Key Tuner (Master)! The only thing remaining is to adjust the <a href="#Parameters">Parameters</a>, which get reset to defaults everytime we load the scale (<i><u>please</u></i> remember this). With the GUI open, hold <b>Shift</b> and use the Down-Arrow or Mouse Wheel down once to set the <b>Pitchbend Range</b> to <b>1</b> (<b>2</b> is the default), because that's what we set up in our synth. Next, since we only have two channels for the synth (via the duplication method), hold <b>CTRL</b> and use the Down-Arrow or Mouse Wheel down to set the <b>Channels</b> to <b>2</b> (instead of the default <b>16</b>).</p>
+
+<p>We're done! Now, feel free to play the keyboard and Key Tuner will send the appropriate pitchbends and iterate through the channels (remember to not play more than two notes at once, though, because that was our limit for this example, two channels). You can <a href="#RootChange">change the root</a> if you want to play an interval from another root and not sound out of tune, fully dynamically as you play, by just sending a note on the new root on <b>channel 16</b> (this is explained in its respective section, I hope you read it).</p>
+
+<p>Pretty cool and easy huh? Now it doesn't seem so complicated anymore does it? But wait, there's more! Assuming you didn't bridge the Key Tuner (Master) above (or you bridged it but in a subhost where you will add the slaves too), if you wanted to add more instruments using the same scale and tuning so they could play in harmony, it's even easier! You can just use Slaves now.</p>
+
+<p>Let's say we want to add a monophonic synth now, without adjustable pitchbend &mdash; its pitchbend is fixed to <b>&#177;2</b> semitones. Insert a track or whatever, add ReaJS and load up Key Tuner (Slave) in it. You will notice <i>the scale is already there</i>! That's because it reads it from the Master (as long as it is in the same process). All you have to do is edit its default parameters to fit our monophonic synth. In this case, the default <b>Pitchbend Range</b> is fine the way it is, because our synth is also fixed at <b>2</b>, so ignore it. Since it's a monophonic synth, it really only needs 1 channel, so go ahead and hold <b>CTRL</b> while pressing Down-Arrow or Mouse Wheel to set the <b>Channels</b> to <b>1</b>.</p>
+
+<p>Unfortunately we still need to do one more thing, but it's easy. <i><u>Please remember</u></i> to send a <b>Program Change</b> before using the Slave, else it will not output any MIDI at all. Even if we only use one Scale! Please, send a <b>Program Change</b> with the value <b>0</b> (which means Scale 1) at the start of the project for the Slave's track, make sure it reaches the Slave. After that, you're done and the Slave now will use the <b>[Scale 1]</b> from the Master!</p>
+
+<p>Next, simply insert the synth after the Key Tuner (Slave) and feel free to play this synth now&hellip; Note that of course, changing the root in the Master will not change the root in the Slave! If you want that to happen automatically, you'll have to <i>route your MIDI Channel 16</i> stuff to both tracks (or whatever), they will then change root at the same time automatically.</p>
+
+<p>Of course you can do more advanced stuff, and even switch tunings or scales if you want, just add more scales to your &quot;scale.txt&quot; file, use the .ahk tool again, and re-load it into the Master (please remember to set its parameters again after doing this, but you <i><u>don't</u></i> have to worry about the slaves though, their parameters will remain!). Then, switch between scales with <b>Program Change</b> events sent to the Key Tuner in question, it's really that simple. (just remember, a PC with value X refers to [Scale X+1] in this case). And obviously one of the most important things is to change the root as mentioned previously, don't be afraid to use it! Do it everytime you play more than one note, such as chords or simple intervals. It's very necessary without equal temperament for it to sound in tune, but once you master its use, Just Intonation can sound incredibly smooth and full of harmony.</p>
+
+<h2>Conclusion</h2>
+<p>That sums up this little tool's not-so-obvious abilities, and with a nice practical tutorial to go along with it at the end. Maybe you find great use for it, or maybe you consider it too much of a hassle to bother, but still I hope you learned at least <i>something</i> out of it (and maybe start to appreciate why it requires effort).</p>
+
+<p class="end">If you'd like to contact or support me in any way, report bugs or similar, please go to the <a href="../../Contact.html">Contact</a> page. If you are a programmer and can pinpoint where the bug happens exactly in the JS code, that's even better! (though the code is quite confusing, I know)</p>
+
+<center><form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top"><input type="hidden" name="cmd" value="_s-xclick"><input type="hidden" name="hosted_button_id" value="VFU5T4P2ZMJ5W"><input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+<img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1"></form></center>
+
+<div class="footer"><table><td><b>This script is licensed under the <a href="http://www.gnu.org/licenses/gpl.txt">GNU General Public License</a>.</b><br><br>This program is free software: you can redistribute it and/or modify<br>it under the terms of the GNU General Public License as published by<br>the Free Software Foundation, either version 3 of the License, or<br>(at your option) any later version.<br><br>This program is distributed in the hope that it will be useful,<br>but WITHOUT ANY WARRANTY; without even the implied warranty of<br>MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. &nbsp;See the<br>GNU General Public License for more details.<br><br>You should have received a copy of the GNU General Public License<br>along with this program. &nbsp;If not, see &lt;http://www.gnu.org/licenses/&gt;.</td></table></div>
+
+</div></body></html>

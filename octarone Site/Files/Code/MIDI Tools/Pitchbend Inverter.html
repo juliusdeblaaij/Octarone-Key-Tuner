@@ -1,0 +1,17 @@
+<html><head><link rel="stylesheet" href="../../Main.css"></head><body><div class="menu"><object type="text/html" data="../../Menu.html"></object></div><div class="main">
+<title>Pitchbend Inverter</title><h1>Pitchbend Inverter</h1>
+
+<p>Very simple <a href="../JSFX.html">JSFX</a> script that inverts the Pitchbend's effective value: up-shifts become down-shifts of equal amount, as long as the receiving synth has an equal up/down range on both sides (which should be the most common case). It also handles the fact that negative (down) pitchbends are slightly more precise than positive (up) pitchbends (8192 values instead of 8191, because of zero), so it does the proper conversion. Please note that it inverts <i><u>all</u></i> pitchbend messages, on <i><u>any</u></i> channel. If you want only a specific channel inverted, then please route it accordingly in the host.</p>
+
+<p><a class="dl" href="http://stash.reaper.fm/28128/Pitchbend%20Inverter.zip">Download it here</a></p>
+
+<p>One use of this script would be to link the inverted result to a synth parameter that should go the opposite way of the pitchbend. For example, let's say you have a simple sampler that does basic pitchbending by slowing down or speeding up the samples. You want to <b>time-stretch</b> the sample itself, without affecting its pitch, but only its speed. To do that, send the pitchbend to the sampler to have the samples play faster or slower (which also modifies their pitch), and then use a pitch shifter effect, with the amount of shift equal to the <i><u>inverted</u></i> pitchbend. Basically, you play the sample faster and then down-pitch it back, or play it slower and then up-pitch it back. So, you just achieved crude (and manual) time-stretching. This is just one example, feel free to use it for anything else.</p>
+
+<p class="end">If you'd like to contact or support me in any way, report bugs or similar, please go to the <a href="../../Contact.html">Contact</a> page.</p>
+
+<center><form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top"><input type="hidden" name="cmd" value="_s-xclick"><input type="hidden" name="hosted_button_id" value="VFU5T4P2ZMJ5W"><input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+<img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1"></form></center>
+
+<div class="footer"><table><td><b>This script is licensed under the <a href="http://www.gnu.org/licenses/gpl.txt">GNU General Public License</a>.</b><br><br>This program is free software: you can redistribute it and/or modify<br>it under the terms of the GNU General Public License as published by<br>the Free Software Foundation, either version 3 of the License, or<br>(at your option) any later version.<br><br>This program is distributed in the hope that it will be useful,<br>but WITHOUT ANY WARRANTY; without even the implied warranty of<br>MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. &nbsp;See the<br>GNU General Public License for more details.<br><br>You should have received a copy of the GNU General Public License<br>along with this program. &nbsp;If not, see &lt;http://www.gnu.org/licenses/&gt;.</td></table></div>
+
+</div></body></html>

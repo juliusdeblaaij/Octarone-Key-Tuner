@@ -1,0 +1,33 @@
+::selection { background: #003a00; color: white } ::-moz-selection { background: #003a00; color: white } ::-webkit-selection { background: #003a00; color: white }
+.flipb { -moz-transform: scale(-1, -1); -webkit-transform: scale(-1, -1); -o-transform: scale(-1, -1); -ms-transform: scale(-1, -1); transform: scale(-1, -1) }
+.fliph { -moz-transform: scale(-1, 1); -webkit-transform: scale(-1, 1); -o-transform: scale(-1, 1); -ms-transform: scale(-1, 1); transform: scale(-1, 1) }
+.flipv { -moz-transform: scale(1, -1); -webkit-transform: scale(1, -1); -o-transform: scale(1, -1); -ms-transform: scale(1, -1); transform: scale(1, -1) }
+body { background-color: #F0F0EA; color: black; font-family: "Times New Roman"; font-size: 100%; border: 0; margin: 0; padding: 0; overflow: hidden }
+h1,h2,h3,h4,h5,h6 { background-color: #008060; color: white; font-family: Verdana }
+h1 { text-align: center; margin-bottom: 48px }
+h2,h3,h4,h5,h6 { margin-top: 36px; padding-left: 50px }
+p { padding-left: 21px }
+pre { font-size: larger; padding-left: 54px }
+a { text-decoration: none; font-weight: bold; color: #005400 }
+a:hover,a:active { text-decoration: underline; color: #866F00 }
+a.dl { font-size: 155% }
+span.quality { font-weight: bold; color: #A05000 }
+span.warning { font-weight: bold; color: red }
+table.list { table-layout:fixed; text-align: left; border-spacing: 31px 0 }
+table.list td { vertical-align: top }
+table.listb { table-layout:fixed; text-align: left; border-spacing: 31px 0; font-weight: bold }
+table.listb td { vertical-align: top }
+table.t { text-align: left; border-collapse: collapse; padding: 10px }
+table.t th { border-bottom: 6px solid #9ac79a; padding: 8px }
+table.t td { border-bottom: 1px solid #9ac79a; padding: 5px }
+ul.list { margin-top: -0.5em }
+ul.list li { margin-top: 0.5em }
+ul.list div { line-height: 50% }
+noscript { font-weight: bold; color: red }
+div.menu { float: left; width: 234px; max-width: 33%; height: 100%; overflow-x: auto; overflow-y: scroll }
+div.main { height: 100%; overflow-x: auto; overflow-y: scroll; padding-left: 16px; padding-right: 16px }
+object { width: 100%; height: 100%; outline: none; overflow-x: hidden; overflow-y: scroll }
+p.end { margin-bottom: 45px }
+p.footer { padding-left: 0; text-align:center; margin-top: 43px; margin-bottom: 45px }
+div.footer { margin-top: 43px; margin-bottom: 45px; text-align: center }
+div.footer table { margin: 0 auto; border-collapse: collapse; text-align: left; font-family: monospace }

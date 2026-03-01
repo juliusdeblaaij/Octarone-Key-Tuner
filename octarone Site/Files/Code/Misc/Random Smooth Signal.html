@@ -1,0 +1,28 @@
+<html><head><link rel="stylesheet" href="../../Main.css"></head><body><div class="menu"><object type="text/html" data="../../Menu.html"></object></div><div class="main">
+<title>Random Smooth Signal</title><h1>Random Smooth Signal</h1>
+
+<p>This <a href="../JSFX.html">JSFX</a> script is a simple continuous random smooth signal generator. It generates a &quot;control&quot; signal as an audio signal, but it is definitely not meant to be listened to (directly)! The signal generated is random, however, it will be smooth between the random points generated. The smoothing method used is a quadratic function, based on the moving average of linear-interpolated randomly-generated points. Basically, think of it as generating a specific amount of random points for a given time frame, and drawing lines between these points: that's your linear interpolation. Now, do the moving average on this whole thing (with the period or length set to the distance between points) &mdash; and you got the smooth random signal&hellip;</p>
+
+<p>You can fully adjust the range that the signal can vary between (randomly), as well as the distance or duration of one random value until it changes to another, but it will always be smooth regardless of this setting, this just tells it how slow it should be with changes. Please note that the output is a mono signal, so if you use it in a stereo configuration, it will probably be the left channel. It <b>continuously</b> generates such a signal, there is no input to it. It is not triggered by any MIDI or audio.</p>
+
+<p><a class="dl" href="http://stash.reaper.fm/27477/Random%20Smooth%20Signal.zip">Download it here</a></p>
+
+<p>The parameters are as follows:</p>
+<p><ul class="list"><li><b>Lower Value:</b> The lowest value that the signal can have, it will never go below this, so it is the lower limit of the signal.</li>
+<li><b>Upper Value:</b> The highest value that the signal can have, it will never go above this. This and <b>Lower Value</b> define the range of the random signal.</li>
+<li><b>Change Duration (ms):</b> This defines the duration of one random value, in milliseconds. The longer the duration, the slower the curve will appear. Short durations will have more changes. For example, a duration of 100ms means a new random value will be generated after each 100ms, so that means 10 times per second.</li>
+</ul></p>
+
+<p>The purpose of this script is to be used as a control signal to randomize other things. For example, you could use it to multiply another signal and randomly vary its volume, subtle or not (that's up to your range, if you make it close to the value 1, then it will be subtle). Another use for it would be to <b>automate</b> a parameter of a synth, effect, or script. In this case, you can vary that parameter randomly for small amounts to have a less sterile and static sound. If you apply it to parameters that have subtle effects, the result can be much more dynamic than a boring static sound.</p>
+
+<p>Here's an example signal and its shape:</p>
+
+<img style="margin-top:1.42em;margin-bottom:1.42em;margin-left:6.515%" alt="Example Signal" width="640px" height="167px" src="Random Smooth Signal.png">
+
+<p>If you'd like to contact or support me in any way, report bugs or similar, please go to the <a href="../../Contact.html">Contact</a> page.</p>
+
+<center><form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top"><input type="hidden" name="cmd" value="_s-xclick"><input type="hidden" name="hosted_button_id" value="VFU5T4P2ZMJ5W"><input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!"><img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1"></form></center>
+
+<div class="footer"><table><td><b>This script is licensed under the <a href="http://www.gnu.org/licenses/gpl.txt">GNU General Public License</a>.</b><br><br>This program is free software: you can redistribute it and/or modify<br>it under the terms of the GNU General Public License as published by<br>the Free Software Foundation, either version 3 of the License, or<br>(at your option) any later version.<br><br>This program is distributed in the hope that it will be useful,<br>but WITHOUT ANY WARRANTY; without even the implied warranty of<br>MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. &nbsp;See the<br>GNU General Public License for more details.<br><br>You should have received a copy of the GNU General Public License<br>along with this program. &nbsp;If not, see &lt;http://www.gnu.org/licenses/&gt;.</td></table></div>
+
+</div></body></html>
